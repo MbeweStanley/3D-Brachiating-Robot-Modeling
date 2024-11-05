@@ -1,0 +1,115 @@
+% Define symbolic variables
+syms theta1x theta1y theta1z theta2 d1 d2 a1 a2 alpha1 alpha2 real
+syms m1 m2 real
+syms I1xx I1xy I1xz I1yy I1yz I1zz real
+syms I2xx I2xy I2xz I2yy I2yz I2zz real
+syms g real
+
+% DH Parameters
+theta1 = [theta1x; theta1y; theta1z];
+theta2 = [theta2];
+
+d = [d1, d2];
+a = [a1, a2];
+alpha = [alpha1, alpha2];
+
+% Rotation matrices for each component of theta1
+R1x = [1, 0, 0;
+       0, cos(theta1x), -sin(theta1x);
+       0, sin(theta1x), cos(theta1x)];
+
+R1y = [cos(theta1y), 0, sin(theta1y);
+       0, 1, 0;
+       -sin(theta1y), 0, cos(theta1y)];
+   
+R1z = [cos(theta1z), -sin(theta1z), 0;
+       sin(theta1z), cos(theta1z), 0;
+       0, 0, 1];
+
+% Transformation Matrices incorporating all rotations for theta1
+R1 = R1x * R1y * R1z;
+A1 = [R1, [a1*cos(theta1x); a1*sin(theta1x); d1];
+      0, 0, 0, 1];
+
+A2 = [cos(theta2), -sin(theta2)*cos(alpha2),  sin(theta2)*sin(alpha2), a2*cos(theta2);
+      sin(theta2),  cos(theta2)*cos(alpha2), -cos(theta2)*sin(alpha2), a2*sin(theta2);
+                0,             sin(alpha2),             cos(alpha2),             d2;
+                0,                       0,                       0,              1];
+
+% Combined Transformation Matrix
+T = A1 * A2;
+
+% Position vectors
+r1 = T(1:3, 4);
+r2 = T(1:3, 4);
+
+% Define velocities
+v1 = jacobian(r1, [theta1x; theta1y; theta1z; theta2]) * [diff(theta1x); diff(theta1y); diff(theta1z); diff(theta2)];
+v2 = jacobian(r2, [theta1x; theta1y; theta1z; theta2]) * [diff(theta1x); diff(theta1y); diff(theta1z); diff(theta2)];
+
+% Inertia tensors in base frame
+I1 = [I1xx, I1xy, I1xz; I1xy, I1yy, I1yz; I1xz, I1yz, I1zz];
+I2 = [I2xx, I2xy, I2xz; I2xy, I2yy, I2yz; I2xz, I2yz, I2zz];
+
+% Rotational velocities
+omega1 = [diff(theta1x); diff(theta1y); diff(theta1z)];
+omega2 = [diff(theta1x + theta2); diff(theta1y + theta2); diff(theta1z + theta2)];
+
+% Kinetic energy (T) and potential energy (U)
+T1 = 0.5 * m1 * (v1.' * v1) + 0.5 * (omega1.' * I1 * omega1);
+T2 = 0.5 * m2 * (v2.' * v2) + 0.5 * (omega2.' * I2 * omega2);
+T_total = simplify(T1 + T2);
+
+U1 = m1 * g * r1(3);
+U2 = m2 * g * r2(3);
+U_total = simplify(U1 + U2);
+
+% Lagrangian
+L = simplify(T_total - U_total);
+
+% Generalized coordinates and velocities
+q = [theta1x; theta1y; theta1z; theta2];
+qd = [diff(theta1x); diff(theta1y); diff(theta1z); diff(theta2)];
+qdd = [diff(theta1x, 2); diff(theta1y, 2); diff(theta1z, 2); diff(theta2, 2)];
+
+% Mass matrix (M)
+M = sym(zeros(4,4));
+for i = 1:4
+    for j = 1:4
+        M(i,j) = simplify(diff(diff(L, qd(i)), qd(j)));
+    end
+end
+    simplify(M)
+
+% Compute simplified symbolic expression
+simplifiedExpr = simplify(M);
+
+% Coriolis and centrifugal matrix (C)
+C = sym(zeros(4,4));
+for i = 1:4
+    for j = 1:4
+        for k = 1:4
+            C(i,j) = C(i,j) + 0.5 * (diff(M(i,j), q(k)) + diff(M(i,k), q(j)) - diff(M(j,k), q(i))) * qd(k);
+        end
+    end
+end
+C = simplify(C);
+simplifiedExpr = simplify(C);
+
+% Gravity vector (G)
+G = sym(zeros(4,1));
+for i = 1:4
+    G(i) = simplify(diff(U_total, q(i)));
+end
+
+% Display results
+disp('Mass matrix M(q):')
+pretty(M)
+latex(M)
+disp('Coriolis and centrifugal matrix C(q, qd):')
+pretty(C)
+latex(C)
+disp('Gravity vector G(q):')
+pretty(G)
+latex(G)
+
