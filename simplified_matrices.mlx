@@ -1,0 +1,89 @@
+% Clear previous workspace
+clear; clc;
+
+% Define symbolic variables for joint angles, velocities, and other parameters
+syms theta1x theta1y theta1z theta2 dtheta1x dtheta1y dtheta1z dtheta2 ddtheta1x ddtheta1y ddtheta1z ddtheta2 real
+syms m1 m2 l1 l2 lc1 lc2 I1 I2 g real
+
+% Position of center of mass of link 1
+x1 = lc1 * sin(theta1x);
+y1 = lc1 * sin(theta1y);
+z1 = lc1 * sin(theta1z);
+
+% Position of center of mass of link 2
+x2 = l1 * sin(theta1x) + lc2 * sin(theta2);
+y2 = l1 * sin(theta1y) + lc2 * sin(theta2);
+z2 = lc2 * sin(theta2);
+
+% Velocity of center of mass of link 1 (by differentiating position)
+vx1 = diff(x1, theta1x) * dtheta1x + diff(x1, theta1y) * dtheta1y;
+vy1 = diff(y1, theta1x) * dtheta1x + diff(y1, theta1y) * dtheta1y;
+vz1 = diff(z1, theta1z) * dtheta1z;
+
+% Velocity of center of mass of link 2 (by differentiating position)
+vx2 = diff(x2, theta1x) * dtheta1x + diff(x2, theta2) * dtheta2;
+
+
+% Kinetic energy of link 1 (translational + rotational)
+T1 = 0.5 * m1 * (vx1^2 + vy1^2 + vz1^2) + 0.5 * I1 * (dtheta1x^2 + dtheta1y^2 + dtheta1z^2);
+
+% Kinetic energy of link 2 (translational + rotational)
+T2 = 0.5 * m2 * (vx2^2) + 0.5 * I2 * dtheta2^2;
+
+% Total kinetic energy
+T = T1 + T2;
+
+% Potential energy of link 1 (due to gravity)
+U1 = m1 * g * lc1 * cos(theta1x);
+
+% Potential energy of link 2 (due to gravity)
+U2 = m2 * g * (l1 * cos(theta1x) + lc2 * cos(theta1x + theta2));
+
+% Total potential energy
+U = U1 + U2;
+
+% Lagrangian
+L = T - U;
+
+% Generalized coordinates and velocities
+q = [theta1x; theta1y; theta1z; theta2];
+dq = [dtheta1x; dtheta1y; dtheta1z; dtheta2];
+
+% Initialize matrices
+M = sym(zeros(4, 4)); % Mass matrix
+C = sym(zeros(4, 4)); % Coriolis matrix
+G = sym(zeros(4, 1)); % Gravity vector
+
+% Compute Mass matrix M(q)
+for i = 1:4
+    for j = 1:4
+        M(i,j) = simplify(diff(diff(L, dq(i)), dq(j)));
+    end
+end
+
+% Compute Coriolis matrix C(q, dq)
+for i = 1:4
+    for j = 1:4
+        C(i,j) = 0;
+        for k = 1:4
+            C(i,j) = C(i,j) + 0.5 * (diff(M(i,j), q(k)) + diff(M(i,k), q(j)) - diff(M(j,k), q(i))) * dq(k);
+        end
+    end
+end
+
+% Compute Gravity vector G(q)
+for i = 1:4
+    G(i) = simplify(diff(U, q(i)));
+end
+
+% Display results
+disp('Mass Matrix M(q):');
+disp(M);
+
+
+disp('Coriolis Matrix C(q, dq):');
+disp(C);
+
+disp('Gravity Vector G(q):');
+disp(G);
+
